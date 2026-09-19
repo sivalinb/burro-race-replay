@@ -133,7 +133,7 @@ Database creation is transactional in a temporary sibling file, followed by an i
 
 The file is created with owner-only permissions (`0600`). A native Grafana process running under the same OS user can read it. For a container or a separate service account, mount the file read-only and grant only the access required by that Grafana process. Do not make the Health export or raw database publicly readable. Raw ZIP/XML/GPX, imported databases, local photos and credentials belong in ignored local paths, not in GitHub.
 
-Grafana reads this completed database through its SQLite data-source plugin. Browser animation replays historical samples; it does not mean the Apple Watch is transmitting live telemetry. Refreshing Grafana queries does not poll Apple Health. After replacing a database, refresh the dashboard/reload its queries; a data-source connection that still holds the old inode may require reconnecting before it sees the new file.
+Grafana reads this completed database through its SQLite data-source plugin. Browser animation replays historical samples; it does not mean the Apple Watch is transmitting live telemetry. Refreshing Grafana queries does not poll Apple Health. After replacing a database with another workout, rerun the installer with the same database path and `--overwrite` to update the absolute time range and native Geomap segment layers, then reopen the dashboard without old `from`/`to` URL overrides. A data-source connection that still holds the old inode may require reconnecting before installation sees the new file.
 
 ## Fictional preview and validation
 

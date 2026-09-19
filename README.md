@@ -6,7 +6,7 @@ A personal race journal inside **Grafana**: Siva and Miles move along a timestam
 
 The repository screenshot below uses the fictional preview for privacy. Its 10 km / 82-minute values and schematic course are demonstration data, not Siva's result; the current local dashboard has the real-map background.
 
-![Grafana race replay preview](docs/images/grafana-preview.png)
+![Grafana race replay preview](docs/images/grafana-preview.jpg)
 
 [Open the local Grafana dashboard](http://127.0.0.1:3030/d/burro-race-replay/burro-race-c2b7-siva-and-miles?orgId=1&kiosk) · [Export instructions](docs/export-workout.md) · [Data contract](docs/data-contract.md) · [Grafana setup](docs/setup-grafana.md)
 
@@ -101,6 +101,7 @@ flowchart LR
     DB --> Source[Grafana SQLite data source: read only]
     Source --> Frames[Four query result frames]
     Frames --> Panel[HTML Graphics panel]
+    Source --> Native[Native Stat / Time series / Bar chart / Table / Geomap]
     Panel --> Replay[Elapsed-time course replay + synchronized readings]
 ```
 
@@ -113,7 +114,21 @@ flowchart LR
 - **Device details:** the user-provided label “Apple Watch Ultra 4” is separate from exported model, hardware identifier, software version and source. The importer excludes unique device identifiers and never infers the marketing model from a hardware code.
 - **Missing data:** SQL nulls display as `—`, with no fabricated HR, route, energy or active time. Summary-only workouts remain usable without GPS. Warnings are available in the footer tooltip and `race.warnings_json`.
 
-This is a **historical workout replay**, not live Apple Watch telemetry. Querying Grafana does not fetch Health data. After importing the actual race into the same database path, refresh the dashboard; the sample badge changes according to `race.synthetic`. If a cached SQLite connection retains the prior file after atomic replacement, reconnect the data source or restart the local Grafana process. Do not change real data to a synthetic flag or vice versa to alter the display.
+This is a **historical workout replay**, not live Apple Watch telemetry. Querying Grafana does not fetch Health data. After importing another workout into the same database path, rerun the installer with the same `--url` and `--db` plus `--overwrite`, then refresh. This updates the historical time range and Geomap segment layers; the sample badge changes according to `race.synthetic`. If a cached SQLite connection retains the prior file after atomic replacement, reconnect the data source or restart the local Grafana process. Do not change real data to a synthetic flag or vice versa to alter the display.
+
+## Native Grafana analysis panels
+
+The animated journal is followed by **10 built-in Grafana panels**, all querying the same local SQLite database:
+
+| Native panel | What it shows |
+| --- | --- |
+| 4 × Stat | Watch/GPS distance, elapsed/active duration, mean/peak heart rate, and workout energy |
+| 3 × Time series | Heart rate, rolling GPS pace, and elevation at their original recorded timestamps |
+| Bar chart | Pace by kilometer, including the partial final kilometer |
+| Table | Detailed kilometer distance, elapsed time, pace, heart rate and climbing |
+| Geomap | The actual GPS course on the standard OpenStreetMap background, with native pan/zoom controls |
+
+These are Grafana's own panel types. Only the illustrated moving replay needs HTML Graphics. The installer sets the dashboard time range from the selected workout so historical time series appear correctly. Native Geomap uses a separate query/layer for each recorded GPS segment to avoid drawing across gaps. [Native panel design and queries](docs/native-panels.md).
 
 ## 5. Verify and extend
 
