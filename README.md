@@ -6,6 +6,24 @@ A personal race journal inside **Grafana**: native panels at the top analyze dis
 
 The screenshots below use an isolated fictional preview for privacy. Its 10 km / 82-minute values and schematic course are demonstration data, not Siva's result. The local dashboard uses the actual recorded course over a real map.
 
+**Full Grafana page walkthrough:** four consecutive full-window captures cover the entire dashboard, including Grafana navigation and its time picker, all 10 native analysis panels, and the animated replay at the bottom. Adjacent captures overlap slightly so no dashboard section is omitted. The fictional preview is paused at the same point throughout.
+
+1. **Page top — Grafana navigation, workout totals and timelines.**
+
+![Grafana page top with navigation, fictional workout stats and timeline charts](docs/images/grafana-full-page-1.jpg)
+
+2. **Middle — kilometer splits and the native map.**
+
+![Grafana page showing fictional kilometer splits and the start of the native map](docs/images/grafana-full-page-2.jpg)
+
+3. **Lower page — native map and the replay heading.**
+
+![Grafana page showing the fictional route on the native map, attribution and replay heading](docs/images/grafana-full-page-3.jpg)
+
+4. **Page bottom — the animated course, playback controls and footer.**
+
+![Grafana page bottom showing the fictional Siva and Miles replay and controls](docs/images/grafana-full-page-4.jpg)
+
 **Native analysis first:**
 
 ![Native Grafana analysis with fictional measurements](docs/images/grafana-native.jpg)
