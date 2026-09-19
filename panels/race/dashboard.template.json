@@ -1,0 +1,126 @@
+{
+  "id": null,
+  "uid": "burro-race-replay",
+  "title": "Burro Race \u00b7 Siva & Miles",
+  "description": "Replay a selected Apple Watch burro race from local SQLite. Synthetic preview until your workout is imported.",
+  "tags": [
+    "burro-race",
+    "workout",
+    "course-replay"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 41,
+  "version": 0,
+  "editable": true,
+  "graphTooltip": 0,
+  "refresh": "",
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {
+    "hidden": true,
+    "refresh_intervals": [
+      "5s",
+      "10s",
+      "30s",
+      "1m"
+    ]
+  },
+  "templating": {
+    "list": []
+  },
+  "annotations": {
+    "list": []
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Siva & Miles \u00b7 Race journal",
+      "type": "gapit-htmlgraphics-panel",
+      "pluginVersion": "2.2.3",
+      "transparent": true,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 34
+      },
+      "datasource": {
+        "type": "frser-sqlite-datasource",
+        "uid": "burro-race-sqlite"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "frser-sqlite-datasource",
+            "uid": "burro-race-sqlite"
+          },
+          "queryType": "table",
+          "rawQueryText": "SELECT * FROM race",
+          "queryText": "SELECT * FROM race",
+          "timeColumns": []
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "frser-sqlite-datasource",
+            "uid": "burro-race-sqlite"
+          },
+          "queryType": "table",
+          "rawQueryText": "SELECT * FROM route_points ORDER BY seq",
+          "queryText": "SELECT * FROM route_points ORDER BY seq",
+          "timeColumns": []
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "frser-sqlite-datasource",
+            "uid": "burro-race-sqlite"
+          },
+          "queryType": "table",
+          "rawQueryText": "SELECT * FROM splits ORDER BY km",
+          "queryText": "SELECT * FROM splits ORDER BY km",
+          "timeColumns": []
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "frser-sqlite-datasource",
+            "uid": "burro-race-sqlite"
+          },
+          "queryType": "table",
+          "rawQueryText": "SELECT * FROM heart_rate ORDER BY elapsed_s",
+          "queryText": "SELECT * FROM heart_rate ORDER BY elapsed_s",
+          "timeColumns": []
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "add100Percentage": true,
+        "centerAlignContent": false,
+        "overflow": "auto",
+        "useGrafanaScrollbar": false,
+        "SVGBaseFix": false,
+        "rootCSS": "",
+        "onRender": "if (htmlNode.__burroUpdate) htmlNode.__burroUpdate(htmlGraphics.data);",
+        "renderOnMount": true,
+        "panelupdateOnMount": false,
+        "onInitOnResize": false,
+        "dynamicHtmlGraphics": false,
+        "dynamicData": false,
+        "dynamicProps": false,
+        "dynamicFieldDisplayValues": false,
+        "codeData": "{}",
+        "calcsMutation": "none",
+        "reduceOptions": {
+          "calcs": []
+        }
+      }
+    }
+  ]
+}

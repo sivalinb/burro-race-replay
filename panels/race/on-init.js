@@ -1,0 +1,153 @@
+// One historical workout, replayed by recorded elapsed time. The real basemap requests only visible OpenStreetMap tiles.
+if (htmlNode.__burroCleanup) htmlNode.__burroCleanup();
+(() => {
+  const root=htmlNode.querySelector('.br'), el=id=>htmlNode.getElementById(id);
+  const media=window.matchMedia('(prefers-reduced-motion: reduce)');
+  const state={race:null,points:[],hr:[],splits:[],pauses:[],xy:[],time:0,speed:60,playing:false,disposed:false,last:0,signature:''};
+  const cleanups=[]; let raf=0, profileY=()=>70, mapZoom=null, fitZoom=14, mapKey='', lastPaint=0;
+  const number=v=>typeof v==='number'&&Number.isFinite(v), fmt=(v,d=0)=>number(v)?v.toFixed(d):'—';
+  const text=(id,v)=>{el(id).textContent=String(v);};
+  const clock=s=>{if(!number(s))return '—';s=Math.max(0,Math.round(s));const h=Math.floor(s/3600),m=Math.floor(s%3600/60),sec=s%60;return (h?h+':':'')+String(m).padStart(h?2:1,'0')+':'+String(sec).padStart(2,'0');};
+  const pace=s=>number(s)&&s>0?`${Math.floor(Math.round(s)/60)}:${String(Math.round(s)%60).padStart(2,'0')}`:'—';
+  const listen=(node,event,fn)=>{node.addEventListener(event,fn);cleanups.push(()=>node.removeEventListener(event,fn));};
+  const svg=(tag,attrs,parent)=>{const n=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const[k,v]of Object.entries(attrs))n.setAttribute(k,String(v));if(parent)parent.appendChild(n);return n;};
+  const label=(parent,x,y,value,attrs={})=>{const n=svg('text',{x,y,fill:'#99b4aa','font-size':10,...attrs},parent);n.textContent=value;return n;};
+  function rows(frame){
+    if(!frame?.fields?.length)return [];
+    const length=frame.length??frame.fields[0].values?.length??0;
+    if(!Number.isInteger(length)||length<0)return [];
+    // Grafana versions expose field values as either arrays or vector objects.
+    return Array.from({length},(_,i)=>Object.fromEntries(frame.fields.map(f=>[f.name,typeof f.values?.get==='function'?f.values.get(i):f.values?.[i]??null])));
+  }
+  function bracket(a,t,key='elapsed_s'){let lo=0,hi=a.length;while(lo<hi){const mid=(lo+hi)>>1;if(a[mid][key]<=t)lo=mid+1;else hi=mid;}return Math.max(0,lo-1);}
+  const sprite=htmlGraphics.customProperties?.sprite;
+  if(typeof sprite==='string'&&sprite.startsWith('data:image/png;base64,')){el('runner-marker').querySelector('image').setAttribute('href',sprite);root.querySelector('.portrait-stage img').src=sprite;}
+  function play(value){state.playing=Boolean(value&&state.race);root.classList.toggle('paused',!state.playing);text('play',state.playing?'Ⅱ Pause':'▶ Play');el('play').setAttribute('aria-label',state.playing?'Pause race replay':'Play race replay');el('play').setAttribute('aria-pressed',String(state.playing));state.last=performance.now();}
+  function drawRoute(){
+    const pts=state.points,group=el('course-markers');group.replaceChildren();
+    text('no-route',pts.length?'':'No GPS route in this workout');
+    el('runner-marker').style.display=pts.length?'':'none';
+    if(!pts.length){el('map-tiles').replaceChildren();el('map-attribution').hidden=true;mapKey='';for(const id of ['route-shadow','route-base','route-progress','route-progress-glow'])el(id).setAttribute('d','');return;}
+    const lat0=pts.reduce((sum,p)=>sum+p.lat,0)/pts.length;
+    const lonOrigin=(pts[0].lon+180)/360;
+    const coords=pts.map(p=>{let x=(p.lon+180)/360;while(x-lonOrigin>.5)x-=1;while(x-lonOrigin<-.5)x+=1;const lat=Math.max(-85.05112878,Math.min(85.05112878,p.lat))*Math.PI/180;return {x,y:(1-Math.log(Math.tan(lat)+1/Math.cos(lat))/Math.PI)/2};});
+    let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;coords.forEach(p=>{minX=Math.min(minX,p.x);maxX=Math.max(maxX,p.x);minY=Math.min(minY,p.y);maxY=Math.max(maxY,p.y);});
+    fitZoom=Math.max(2,Math.min(18,Math.floor(Math.log2(Math.min(650/Math.max(maxX-minX,1e-8),280/Math.max(maxY-minY,1e-8))/256))));
+    const zoom=mapZoom??fitZoom,world=256*2**zoom,left=(minX+maxX)/2*world-460,top=(minY+maxY)/2*world-245;
+    state.xy=coords.map(p=>({x:p.x*world-left,y:p.y*world-top}));
+    const scale=world/(40075016.686*Math.cos(lat0*Math.PI/180));
+    const real=Number(state.race.synthetic)!==1;
+    root.classList.toggle('real-map',real);el('map-attribution').hidden=!real;
+    text('map-caption',real?'':'FICTIONAL COURSE · NO REAL LOCATION');
+    text('route-kind',real?'OpenStreetMap · north up':'Fictional route · north up');
+    const key=real?[zoom,left.toFixed(3),top.toFixed(3)].join(':'):'demo';
+    if(key!==mapKey){
+      mapKey=key;const tiles=el('map-tiles');tiles.replaceChildren();
+      if(real){
+        let failures=0;const count=2**zoom;
+        const template=htmlGraphics.customProperties?.tileUrl||'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+        for(let x=Math.floor(left/256);x<=Math.floor((left+920)/256);x++)for(let y=Math.floor(top/256);y<=Math.floor((top+420)/256);y++){
+          if(y<0||y>=count)continue;
+          const url=template.replace('{z}',zoom).replace('{x}',((x%count)+count)%count).replace('{y}',y);
+          if(!url.startsWith('https://'))continue;
+          const tile=svg('image',{x:x*256-left,y:y*256-top,width:256,height:256,href:url,'data-tile':zoom+'/'+x+'/'+y},tiles);
+          tile.addEventListener('error',()=>{if(!state.disposed&&mapKey===key){failures++;text('route-kind','Map tiles unavailable · GPS trace retained');}},{once:true});
+        }
+      }
+    }
+    const path=state.xy.map((p,i)=>`${i&&pts[i].segment===pts[i-1].segment?'L':'M'}${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' ');
+    el('route-base').setAttribute('d',path);el('route-shadow').setAttribute('d',path);
+    // Checkpoints are derived from cumulative recorded GPS distance, not invented positions.
+    let next=1000;for(let i=1;i<pts.length;i++){const a=pts[i-1],b=pts[i];while(b.distance_m>=next&&b.distance_m>a.distance_m){const f=(next-a.distance_m)/(b.distance_m-a.distance_m),aa=state.xy[i-1],bb=state.xy[i],p={x:aa.x+(bb.x-aa.x)*f,y:aa.y+(bb.y-aa.y)*f};svg('circle',{cx:p.x,cy:p.y,r:9,fill:'#173034',stroke:'#547e73'},group);label(group,p.x,p.y+3,String(next/1000),{'text-anchor':'middle','font-size':9});next+=1000;}}
+    const first=state.xy[0],last=state.xy[state.xy.length-1];
+    svg('circle',{cx:first.x,cy:first.y,r:6,fill:'#bfe1c1',stroke:'#102521','stroke-width':2},group);label(group,first.x+12,first.y+17,'START',{'font-size':9,fill:'#bfe1c1'});
+    svg('rect',{x:last.x-4,y:last.y-4,width:8,height:8,fill:'#f2e7c6',stroke:'#102521'},group);label(group,last.x+12,last.y-10,'FINISH',{'font-size':9,fill:'#f2e7c6'});
+    const meters=[2000,1000,500,200,100,50,20,10].find(m=>m*scale<=150)||10;el('scale-line').setAttribute('d',`M0 -4V0H${(meters*scale).toFixed(1)}V-4`);text('scale-label',meters>=1000?(meters/1000)+' km':meters+' m');
+  }
+  function drawProfile(){
+    const group=el('profile-content');group.replaceChildren();
+    const duration=Math.max(1,state.race.elapsed_s),x=t=>40+Math.max(0,Math.min(1,t/duration))*620;
+    [35,80,125].forEach(y=>svg('line',{x1:40,x2:660,y1:y,y2:y,stroke:'#2a4143','stroke-width':1},group));
+    [0,.25,.5,.75,1].forEach(f=>label(group,x(f*duration),150,clock(f*duration),{'text-anchor':'middle','font-size':9}));
+    const elev=state.points.filter(p=>number(p.elevation_m));
+    if(elev.length){const low=Math.min(...elev.map(p=>p.elevation_m)),high=Math.max(...elev.map(p=>p.elevation_m));profileY=v=>125-(v-low)/Math.max(high-low,1)*105;
+      let d='',prev=null;for(const p of state.points){if(!number(p.elevation_m)){prev=null;continue;}d+=`${prev&&prev.segment===p.segment?'L':'M'}${x(p.elapsed_s).toFixed(2)} ${profileY(p.elevation_m).toFixed(2)} `;prev=p;}
+      svg('path',{d,fill:'none',stroke:'#ffc77c','stroke-width':2},group);text('elevation-range',`${fmt(low)}–${fmt(high)} m · left scale`);label(group,33,23,fmt(high),{'text-anchor':'end','font-size':8,fill:'#ffc77c'});label(group,33,126,fmt(low),{'text-anchor':'end','font-size':8,fill:'#ffc77c'});
+    }else{text('elevation-range','Elevation not available');profileY=()=>75;}
+    if(state.hr.length){const low=Math.min(...state.hr.map(p=>p.bpm)),high=Math.max(...state.hr.map(p=>p.bpm)),y=v=>125-(v-low)/Math.max(high-low,1)*105;let prev=null,d='';for(const p of state.hr){d+=`${prev&&p.elapsed_s-prev.elapsed_s<=60?'L':'M'}${x(p.elapsed_s).toFixed(2)} ${y(p.bpm).toFixed(2)} `;prev=p;}svg('path',{d,fill:'none',stroke:'#f299a5','stroke-width':1.7,opacity:.85},group);text('hr-range',`${fmt(low)}–${fmt(high)} bpm · right scale`);label(group,668,23,fmt(high),{'font-size':8,fill:'#f299a5'});label(group,668,126,fmt(low),{'font-size':8,fill:'#f299a5'});}else text('hr-range','Heart rate not available');
+  }
+  function drawSplits(){const body=el('split-rows');body.replaceChildren();const valid=state.splits.map(s=>s.pace_s_km).filter(number),max=valid.length?Math.max(...valid):1;for(const s of state.splits){const tr=document.createElement('tr');tr.dataset.km=s.km;const values=[String(s.km)+(s.is_partial?'*':''),pace(s.pace_s_km),fmt(s.avg_hr_bpm),number(s.elevation_gain_m)?'+'+fmt(s.elevation_gain_m)+' m':'—'];values.forEach((v,i)=>{const td=document.createElement('td');td.textContent=v;if(i===1)td.style.setProperty('--bar',`${number(s.pace_s_km)?Math.min(100,s.pace_s_km/max*90):0}%`);tr.appendChild(td);});body.appendChild(tr);}if(!state.splits.length){const tr=document.createElement('tr'),td=document.createElement('td');td.colSpan=4;td.textContent='Splits require recorded GPS distance.';tr.appendChild(td);body.appendChild(tr);}}
+  function render(){
+    if(!state.race)return;const t=state.time,duration=Math.max(1,state.race.elapsed_s),pts=state.points;
+    text('replay-clock',clock(t));el('seek').value=Math.round(t/duration*1000);el('seek').setAttribute('aria-valuetext',`${clock(t)} of ${clock(duration)}`);
+    const watchPause=state.pauses.find(p=>t>=p.start_s&&t<p.end_s);
+    // The recorded elapsed clock continues during a watch pause; the position does not.
+    // Freeze at the pause's beginning, even if a GPX includes drifting samples inside it.
+    const positionTime=watchPause?watchPause.start_s:t;
+    const beforeRoute=Boolean(pts.length&&positionTime<pts[0].elapsed_s);
+    const afterRoute=Boolean(pts.length&&positionTime>pts[pts.length-1].elapsed_s);
+    let p=null,gap=false,pointDistance=null,xy=null,idx=0;
+    if(pts.length&&!beforeRoute){
+      idx=bracket(pts,positionTime);const a=pts[idx],b=pts[Math.min(idx+1,pts.length-1)];
+      const f=b.elapsed_s>a.elapsed_s?Math.max(0,Math.min(1,(positionTime-a.elapsed_s)/(b.elapsed_s-a.elapsed_s))):0;
+      gap=a.segment!==b.segment&&positionTime<b.elapsed_s;
+      const mix=key=>f===0?a[key]:number(a[key])&&number(b[key])?a[key]+(b[key]-a[key])*f:null;
+      // Distance is cumulative knowledge and can be held; pace/elevation are not extrapolated.
+      p={...a,distance_m:gap?a.distance_m:mix('distance_m'),
+        elevation_m:gap||afterRoute?null:mix('elevation_m'),
+        pace_s_km:gap||afterRoute||watchPause?null:a.pace_s_km};
+      pointDistance=p.distance_m;
+      const aa=state.xy[idx],bb=state.xy[Math.min(idx+1,state.xy.length-1)];
+      xy={x:aa.x+(bb.x-aa.x)*(gap?0:f),y:aa.y+(bb.y-aa.y)*(gap?0:f)};
+      el('runner-marker').setAttribute('transform',`translate(${xy.x.toFixed(2)} ${xy.y.toFixed(2)})`);
+      let d=state.xy.slice(0,idx+1).map((q,i)=>`${i&&pts[i].segment===pts[i-1].segment?'L':'M'}${q.x.toFixed(2)} ${q.y.toFixed(2)}`).join(' ');
+      if(!gap)d+=` L${xy.x.toFixed(2)} ${xy.y.toFixed(2)}`;
+      el('route-progress').setAttribute('d',d);el('route-progress-glow').setAttribute('d',d);
+    }else{el('route-progress').setAttribute('d','');el('route-progress-glow').setAttribute('d','');}
+    el('runner-marker').style.display=pts.length&&!beforeRoute?'':'none';
+    // HR uses the most recent actual sample for at most 30s, never a future sample.
+    const sample=state.hr.length?state.hr[bracket(state.hr,t)]:null,hr=sample&&t>=sample.elapsed_s&&t-sample.elapsed_s<=30?sample.bpm:null;
+    text('current-distance',number(pointDistance)?fmt(pointDistance/1000,2)+' km':'No GPS');text('current-hr',fmt(hr));text('current-pace',pace(p?.pace_s_km));text('current-elevation',fmt(p?.elevation_m));
+    const percent=number(pointDistance)&&state.race.gps_distance_m>0?Math.min(100,pointDistance/state.race.gps_distance_m*100):null;
+    text('current-percent',number(percent)?fmt(percent)+'%':'—');
+    root.classList.toggle('gap',Boolean(gap||watchPause||beforeRoute||afterRoute||!pts.length));
+    root.classList.toggle('no-heart',!number(hr));if(number(hr))root.style.setProperty('--beat',`${60/hr}s`);
+    const ended=t>=duration;
+    const message=ended?'Replay complete':watchPause?'Watch paused · position held':!pts.length?'No GPS route · statistics only':beforeRoute?'Waiting for first GPS sample':afterRoute?'GPS recording ended · position held':gap?'GPS gap · position held':state.playing?'Moving through the race':'Replay paused';
+    const replayLabel=ended?'FINISHED':watchPause?'WATCH PAUSED':!pts.length?'NO GPS ROUTE':beforeRoute?'AWAITING GPS':afterRoute?'GPS ENDED':gap?'GPS GAP':state.playing?`REPLAYING · ${state.speed}×`:'PAUSED · SCRUB TO EXPLORE';
+    text('moment-status',message);text('replay-label',replayLabel);
+    const px=40+Math.min(1,t/duration)*620;el('profile-cursor').setAttribute('x1',px);el('profile-cursor').setAttribute('x2',px);el('profile-dot').setAttribute('cx',px);el('profile-dot').setAttribute('cy',profileY(p?.elevation_m??0));el('profile-dot').style.display=number(p?.elevation_m)?'':'none';
+    const km=number(pointDistance)?Math.min(state.splits.length,Math.floor(pointDistance/1000)+1):null;for(const tr of el('split-rows').querySelectorAll('tr'))tr.classList.toggle('current',Number(tr.dataset.km)===km);
+  }
+  function update(data){
+    if(state.disposed)return;if(data?.error||data?.errors?.length){play(false);el('data-notice').className='notice error';text('data-notice','Workout query failed. Last replay is paused; check the Grafana data source.');return;}
+    const frames={};for(const f of data?.series||[])frames[f.refId]=rows(f);
+    if(!frames.A?.length){if(data?.state!=='Loading'&&data?.state!=='NotStarted'){play(false);el('data-notice').className='notice error';text('data-notice','No workout row is available. Import a workout or create the fictional preview, then refresh.');}return;}
+    const race=frames.A[0];if(!number(race.elapsed_s)||race.elapsed_s<=0){play(false);el('data-notice').className='notice error';text('data-notice','The workout duration is missing or invalid. Reimport the workout before replaying.');return;}
+    state.race=race;
+    state.points=(frames.B||[]).filter(p=>number(p.elapsed_s)&&p.elapsed_s>=0&&p.elapsed_s<=race.elapsed_s&&number(p.lat)&&Math.abs(p.lat)<=90&&number(p.lon)&&Math.abs(p.lon)<=180&&number(p.distance_m)&&p.distance_m>=0&&number(p.segment)).sort((a,b)=>a.elapsed_s-b.elapsed_s);
+    state.hr=(frames.D||[]).filter(h=>number(h.elapsed_s)&&h.elapsed_s>=0&&h.elapsed_s<=race.elapsed_s&&number(h.bpm)&&h.bpm>0).sort((a,b)=>a.elapsed_s-b.elapsed_s);state.splits=frames.C||[];
+    state.pauses=[];try{const pauses=JSON.parse(race.pauses_json||'[]');if(Array.isArray(pauses))state.pauses=pauses.filter(p=>number(p.start_s)&&number(p.end_s)&&p.end_s>p.start_s).map(p=>({start_s:Math.max(0,p.start_s),end_s:Math.min(race.elapsed_s,p.end_s)})).filter(p=>p.end_s>p.start_s).sort((a,b)=>a.start_s-b.start_s);}catch{}
+    const signature=JSON.stringify([race.start_time,race.source,race.synthetic,race.point_count,race.gps_distance_m,race.elapsed_s]);const changed=signature!==state.signature;state.signature=signature;if(changed){state.time=0;mapZoom=null;mapKey='';}
+    root.classList.remove('waiting');const simulated=Number(race.synthetic)===1;el('data-badge').classList.toggle('recorded',!simulated);text('data-badge',simulated?'SAMPLE WORKOUT · NOT YOUR RACE':'RECORDED WORKOUT · LOCAL DATA');el('data-notice').className='notice'+(simulated?'':' recorded');
+    text('data-notice',simulated?'PREVIEW: this course and every measurement are fictional. Your Apple Watch export will replace them. The artwork is based on you and Miles.':'This replay uses your selected recorded workout. GPS gaps stay visible; unavailable measurements are shown as —.');
+    text('race-subtitle',simulated?'An animated trail journal for you and Miles. Your real race is next.':`${race.title||'Burro race'} · ${race.recorded_start_time||race.start_time||''}`);
+    text('total-distance',number(race.gps_distance_m)?fmt(race.gps_distance_m/1000,2)+' km':'—');text('distance-note',number(race.recorded_distance_m)?`Watch: ${fmt(race.recorded_distance_m/1000,2)} km`:'GPS track distance');text('total-time',clock(race.elapsed_s));text('active-time',number(race.active_s)?`Active: ${clock(race.active_s)}`:'start to finish');text('total-pace',race.gps_distance_m>0?pace(race.elapsed_s/(race.gps_distance_m/1000)):'—');text('total-hr',number(race.avg_hr_bpm)?fmt(race.avg_hr_bpm)+' bpm':'—');text('peak-hr',number(race.max_hr_bpm)?`Peak: ${fmt(race.max_hr_bpm)} bpm`:'No heart-rate samples');text('total-gain',number(race.elevation_gain_m)?fmt(race.elevation_gain_m)+' m':'—');text('replay-end',clock(race.elapsed_s));
+    let warnings=[];try{warnings=JSON.parse(race.warnings_json||'[]');}catch{}text('quality-note',`${race.point_count||0} GPS points · ${race.hr_count||0} heart-rate samples · ${warnings.length?warnings.length+' data notes · ':''}Local SQLite → Grafana${state.splits.some(s=>s.is_partial)?' · * partial final km':''}`);el('quality-note').title=warnings.join('\n');
+    let device={};try{const metadata=JSON.parse(race.device_metadata_json||'{}');device=metadata.exported_device||metadata;}catch{}
+    text('device-model',race.device_label||device.model||'Device not provided');
+    text('device-provenance',race.device_label?'Model supplied by you · export details shown separately':'Model from selected workout export');
+    text('device-exported',device.model||device.name||'Not present in export');
+    text('device-hardware',device.hardware||device.hardwareVersion||'Hardware identifier unavailable');
+    text('device-software',device.software||device.softwareVersion||race.source_version||'—');
+    text('device-source',race.source||'Export source unavailable');
+    text('device-energy',number(race.energy_kcal)?fmt(race.energy_kcal)+' kcal':'—');
+    drawRoute();drawProfile();drawSplits();state.time=Math.min(state.time,race.elapsed_s);if(changed)play(!media.matches);render();
+  }
+  listen(el('map-in'),'click',()=>{mapZoom=Math.min(19,(mapZoom??fitZoom)+1);drawRoute();render();});listen(el('map-out'),'click',()=>{mapZoom=Math.max(2,(mapZoom??fitZoom)-1);drawRoute();render();});listen(el('map-fit'),'click',()=>{mapZoom=null;drawRoute();render();});
+  listen(el('play'),'click',()=>{if(state.time>=state.race?.elapsed_s)state.time=0;play(!state.playing);render();});
+  listen(el('restart'),'click',()=>{state.time=0;render();});listen(el('seek'),'input',()=>{play(false);state.time=Number(el('seek').value)/1000*(state.race?.elapsed_s||0);render();});listen(el('speed'),'change',()=>{state.speed=Number(el('speed').value);render();});listen(media,'change',event=>{if(event.matches){play(false);render();}});
+  function tick(now){if(state.disposed)return;if(state.playing&&state.race&&!document.hidden){state.time=Math.min(state.race.elapsed_s,state.time+Math.min(.25,(now-state.last)/1000)*state.speed);if(state.time>=state.race.elapsed_s)play(false);if(now-lastPaint>=50||!state.playing){render();lastPaint=now;}}state.last=now;raf=requestAnimationFrame(tick);}
+  function cleanup(){if(state.disposed)return;state.disposed=true;cancelAnimationFrame(raf);cleanups.forEach(fn=>fn());htmlNode.removeEventListener('panelwillunmount',cleanup);if(htmlNode.__burroUpdate===update)delete htmlNode.__burroUpdate;if(htmlNode.__burroCleanup===cleanup)delete htmlNode.__burroCleanup;}
+  htmlNode.__burroCleanup=cleanup;htmlNode.__burroUpdate=update;htmlNode.addEventListener('panelwillunmount',cleanup);play(false);update(htmlGraphics.data);raf=requestAnimationFrame(tick);
+})();

@@ -1,0 +1,48 @@
+<main class="br waiting" aria-label="Burro race workout replay">
+  <header class="br-head"><div><div class="eyebrow">TRAIL JOURNAL / APPLE WATCH → GRAFANA</div><h1>A little grit. A lot of <em>Miles.</em></h1><p id="race-subtitle">Preparing your race replay…</p></div><div class="head-tags"><span id="data-badge" class="badge">WAITING FOR DATA</span><span class="edition">10K BURRO RACE / COURSE REPLAY</span></div></header>
+  <div id="data-notice" class="notice" role="status">Waiting for the local workout database.</div>
+  <section class="totals" aria-label="Workout totals">
+    <div><span class="metric-label" id="distance-label">GPS DISTANCE</span><strong id="total-distance">—</strong><small id="distance-note">kilometers</small></div>
+    <div><span class="metric-label">ELAPSED TIME</span><strong id="total-time">—</strong><small id="active-time">start to finish</small></div>
+    <div><span class="metric-label">AVG ELAPSED PACE</span><strong id="total-pace">—</strong><small>min / km · GPS distance</small></div>
+    <div><span class="metric-label">HEART RATE</span><strong id="total-hr">—</strong><small id="peak-hr">average / peak bpm</small></div>
+    <div><span class="metric-label">ELEVATION GAIN</span><strong id="total-gain">—</strong><small>meters · GPS estimate</small></div>
+  </section>
+  <div class="main-grid">
+    <section class="course card" aria-label="Recorded course">
+      <div class="card-heading"><div><span class="eyebrow">01 / FOLLOW THE FOOTSTEPS</span><h2>You + Miles, every turn.</h2></div><span id="route-kind" class="muted">Route trace · north up</span></div>
+      <div class="course-wrap">
+        <svg id="course-svg" viewBox="0 0 920 420" role="img" aria-label="GPS route with moving runner and burro marker">
+          <defs><pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#c5d8cd" stroke-opacity=".05"/></pattern><filter id="glow"><feGaussianBlur stdDeviation="4"/></filter></defs>
+          <rect width="920" height="420" fill="url(#grid)"/>
+          <g id="map-tiles"></g>
+          <g class="contours" fill="none" stroke="#8ba895" opacity=".08"><path d="M-50 220Q180 -50 450 100T1000 20M-50 250Q180 -20 450 130T1000 50M-50 280Q180 10 450 160T1000 80M-50 310Q180 40 450 190T1000 110M-50 340Q180 70 450 220T1000 140M-50 370Q180 100 450 250T1000 170M-50 400Q180 130 450 280T1000 200"/></g>
+          <g transform="translate(864 46)"><path d="M0 0L-5 15H5Z" fill="#c7d7ce"/><text y="-9" text-anchor="middle" class="svg-note">N</text></g>
+          <path id="route-shadow" fill="none" stroke="#a4cfc4" stroke-width="14" opacity=".05" stroke-linecap="round"/>
+          <path id="route-base" fill="none" stroke="#527b77" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          <path id="route-progress-glow" fill="none" stroke="#ffc77c" stroke-width="9" opacity=".25" filter="url(#glow)"/>
+          <path id="route-progress" fill="none" stroke="#ffc77c" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+          <g id="course-markers"></g>
+          <g id="runner-marker"><circle r="12" fill="#ffc77c" fill-opacity=".16"/><circle r="5" fill="#ffc77c" stroke="#f9efd8" stroke-width="2"/><g class="trot"><image href="__SPRITE_DATA__" x="-55" y="-76" width="110" height="73"/></g></g>
+          <g transform="translate(28 380)"><path id="scale-line" d="M0 -4V0H100V-4" fill="none" stroke="#9cb5ac"/><text id="scale-label" y="18" class="svg-note">—</text></g>
+          <text id="map-caption" x="892" y="400" text-anchor="end" class="svg-note">ROUTE TRACE</text>
+          <text id="no-route" x="460" y="215" text-anchor="middle" fill="#bdcdc7" font-size="18">Waiting for GPS points</text>
+        </svg>
+        <div class="map-controls" aria-label="Map controls"><button id="map-out" aria-label="Zoom map out" type="button">−</button><button id="map-fit" aria-label="Fit map to route" type="button">Fit course</button><button id="map-in" aria-label="Zoom map in" type="button">+</button></div><div id="map-attribution" class="map-attribution" hidden>© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap contributors</a></div><div class="map-corner"><span class="live-dot"></span><span id="replay-label">REPLAY READY</span></div>
+      </div>
+      <div class="playback"><button id="play" class="primary" type="button" aria-label="Play race replay">▶ Play</button><button id="restart" type="button" aria-label="Restart replay">↺</button><span id="replay-clock" class="clock">00:00</span><input id="seek" type="range" min="0" max="1000" value="0" step="1" aria-label="Replay position"/><span id="replay-end" class="clock">—</span><label class="speed-label">Speed<select id="speed" aria-label="Replay speed"><option value="1">1×</option><option value="10">10×</option><option value="30">30×</option><option value="60" selected>60×</option><option value="120">120×</option></select></label></div>
+    </section>
+    <aside class="partner card" aria-label="Race companion and replay readings">
+      <div class="partner-title"><div><span class="eyebrow">THE DREAM TEAM</span><h2>Two hearts.<br>One finish line.</h2></div><span class="bib">1407</span></div>
+      <div class="portrait-stage"><div class="portrait-halo"></div><img src="__SPRITE_DATA__" alt="Illustrated Siva with bib 1407 jogging beside Miles, a gray pack burro"/><div class="portrait-caption"><span>YOU & MILES</span><small>Illustrated from your race photo</small></div></div>
+      <div class="moment-title">AT THIS MOMENT <span id="current-distance">0.00 km</span></div>
+      <div class="moment-grid"><div><span class="metric-label"><span id="heart-icon">♥</span> YOUR HEART</span><strong id="current-hr">—</strong><small>bpm · recorded samples</small></div><div><span class="metric-label">YOUR PACE</span><strong id="current-pace">—</strong><small>min / km · rolling GPS</small></div><div><span class="metric-label">ELEVATION</span><strong id="current-elevation">—</strong><small>meters above sea level</small></div><div><span class="metric-label">COURSE COMPLETE</span><strong id="current-percent">0%</strong><small id="moment-status">Ready at the start</small></div></div>
+    </aside>
+  </div>
+  <div class="analysis-grid">
+    <section class="card profile-card"><div class="card-heading"><div><span class="eyebrow">02 / THE UPS & DOWNS</span><h2>Elevation + effort</h2></div><div class="chart-legend"><span class="gold">Elevation</span><span class="rose">Heart rate</span></div></div><svg id="profile" viewBox="0 0 700 160" role="img" aria-label="Elevation and heart rate over elapsed workout time"><g id="profile-content"></g><line id="profile-cursor" x1="40" x2="40" y1="12" y2="130" stroke="#f5efda" stroke-dasharray="3 4"/><circle id="profile-dot" r="4" fill="#ffc77c"/></svg><div class="chart-foot"><span id="elevation-range">GPS elevation</span><span>Elapsed time →</span><span id="hr-range">Recorded heart rate</span></div></section>
+    <section class="card split-card"><div class="card-heading"><div><span class="eyebrow">03 / THE RACE, IN CHAPTERS</span><h2>Kilometer splits</h2></div><span class="muted">Elapsed pace</span></div><div class="split-table-wrap"><table><thead><tr><th>KM</th><th>PACE / KM</th><th>HR</th><th>CLIMB</th></tr></thead><tbody id="split-rows"></tbody></table></div></section>
+  </div>
+  <section class="card device-card" aria-label="Recording device details"><div><span class="eyebrow">04 / RECORDED ON YOUR WRIST</span><h2 id="device-model">Device details pending</h2><small id="device-provenance">Model supplied by you</small></div><div><span class="metric-label">EXPORTED DEVICE</span><strong id="device-exported">—</strong><small id="device-hardware">Hardware identifier unavailable</small></div><div><span class="metric-label">SOFTWARE</span><strong id="device-software">—</strong><small id="device-source">Export source</small></div><div><span class="metric-label">WORKOUT ENERGY</span><strong id="device-energy">—</strong><small>Exported workout value</small></div></section>
+  <footer class="br-footer"><span id="quality-note">Local SQLite → Grafana · no live tracking</span><span>Small hooves. Big adventure.</span></footer>
+</main>

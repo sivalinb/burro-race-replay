@@ -1,0 +1,22 @@
+# Health archives, exact routes, local database, credentials and scratch exports
+runtime/
+private/
+imports/
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.zip
+*.gpx
+*.tcx
+*.fit
+*.xml
+.env
+.env.*
+*.log
+*.pid
+__pycache__/
+*.py[cod]
+.DS_Store
+# Rebuilt locally; duplicates the embedded PNG asset.
+dashboards/*.json
