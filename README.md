@@ -147,6 +147,6 @@ node tests/test_replay.cjs
 
 The tests cover scoped Health/GPX parsing, units, timestamps, route safety, pauses/gaps, kilometer interpolation, missing values and database replacement. They use generated fixtures, not private workout files. The actual supplied Apple Health archive also imported successfully: exactly one latest Running workout, its linked GPX, heart-rate observations and device metadata. No actual Health archive, GPX, database or exact-route screenshot is committed.
 
-[Detailed schema and calculation rules](docs/data-contract.md) · [Validation record](docs/validation.md) · [Artwork provenance and generation prompt](assets/README.md)
+[Detailed schema and calculation rules](docs/data-contract.md) · [Validation record](docs/validation.md) · [Artwork provenance](assets/README.md)
 
 Source layout: `scripts/` contains ingestion, demo, build and installation; `panels/race/` contains editable dashboard/HTML/CSS/JS sources; `assets/` contains the revised illustration; `docs/` explains export, storage and deployment. The original reference photos and full Health archive are not included.
