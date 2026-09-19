@@ -85,8 +85,9 @@ def dashboard_targets(dashboard, allow_segment_queries=False):
         raise RuntimeError("The built dashboard must contain race queries A–D and native panel queries N1–N10. Rebuild it before installing.")
     if len(set(refs)) != len(refs):
         raise RuntimeError("The built dashboard has duplicate query references. Rebuild it before installing.")
-    if not dashboard.get('panels') or {t.get('refId') for t in dashboard['panels'][0].get('targets', [])} != set(REQUIRED_TABLES):
-        raise RuntimeError("The first panel must retain the animated replay's four queries A–D.")
+    replay = [p for p in dashboard.get('panels', []) if p.get('type') == 'gapit-htmlgraphics-panel']
+    if len(replay) != 1 or {t.get('refId') for t in replay[0].get('targets', [])} != set(REQUIRED_TABLES):
+        raise RuntimeError("The animated replay panel must retain its four queries A–D.")
     for target in targets:
         if target.get("datasource") != {"type": SOURCE_TYPE, "uid": SOURCE_UID}:
             raise RuntimeError("The built dashboard references an unexpected data source. Rebuild it before installing.")

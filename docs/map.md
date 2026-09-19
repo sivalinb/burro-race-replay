@@ -2,7 +2,7 @@
 
 The map provides geographic context for the imported Watch course. The recorded latitude/longitude points form the route overlay; OpenStreetMap supplies the background streets, paths, land features, and labels. Those are separate sources. The backdrop does not determine the runner's position or alter the imported GPS points.
 
-The animated Siva-and-Miles marker follows the workout's recorded timestamps and the same elapsed-time replay clock as the statistics. Changing playback speed changes the rate of historical replay. It does not request a new route from OpenStreetMap, geocode the athlete's position, or communicate with the Watch.
+The animated Siva-and-Miles marker follows the workout's recorded timestamps and an elapsed-time replay clock controlled by Play, speed and the scrubber. The native metric panels above it show the full workout independently. Changing playback speed changes the rate of historical replay. It does not request a new route from OpenStreetMap, geocode the athlete's position, or communicate with the Watch.
 
 ## Tile requests and attribution
 

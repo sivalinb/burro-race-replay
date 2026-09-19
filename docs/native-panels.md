@@ -1,6 +1,6 @@
 # Native Grafana analysis panels
 
-The dashboard combines the animated race journal with **10 native Grafana panels using five built-in visualization types**. The animated panel retains the person-and-burro replay, course traversal, watch-pause behavior, and synchronized moments. The native panels provide Grafana's standard chart interaction, table inspection, map navigation, and editable visualization options. No additional visualization plugin is required for these ten panels.
+The dashboard starts with **10 native Grafana panels using five built-in visualization types**, followed by a compact animated course replay at the bottom. The animated panel retains the person-and-burro marker, recorded course traversal, playback controls, watch-pause behavior and compact device provenance. Duplicate metric cards, charts, split tables and the companion portrait are removed. The native panels provide Grafana's standard chart interaction, table inspection, map navigation, and editable visualization options. No additional visualization plugin is required for these ten panels.
 
 The data remains in the same local, read-only SQLite source, `burro-race-sqlite`. These panels query the single imported workout; they do not connect to the Apple Watch or poll Apple Health. See [the data contract](data-contract.md) for ingestion and metric definitions.
 
@@ -17,7 +17,7 @@ The data remains in the same local, read-only SQLite source, `burro-race-sqlite`
 | `N9` | Table: Kilometer splits · detail | Distance, elapsed time, normalized pace, mean HR, climb, and explicit full/partial coverage. |
 | `N10` | Geomap: Recorded course | Interactive OpenStreetMap with recorded route segments; the direct-import template safely uses GPS point markers. |
 
-The four core query references `A`–`D` still feed the animated first panel. New panels use globally unique `N1`–`N10` references. Multiple GPS segments add `N10_S1`, `N10_S2`, and so on to the installed Geomap only, while the dashboard still contains ten native panels.
+The four core query references `A`–`D` remain in the replay panel for the existing data contract; the simplified replay consumes only workout metadata (`A`) and GPS points (`B`). Native queries supply the visible metrics, HR and split analysis. New panels use globally unique `N1`–`N10` references. Multiple GPS segments add `N10_S1`, `N10_S2`, and so on to the installed Geomap only, while the dashboard still contains ten native panels.
 
 ## Accurate historical time
 
@@ -44,7 +44,7 @@ No native panel substitutes zero for unavailable HR, calories, elevation, durati
 
 The HR query adds a null break after gaps longer than 60 seconds. The elevation query adds a null break when the importer's route `segment` changes. These null rows only instruct Grafana to disconnect a trace; they are not invented measurements and are not written back to SQLite. Rolling pace already contains nulls at segment starts and when insufficient distance is available. Time series use `spanNulls: false`.
 
-Pace charts and the split table show **decimal minutes per kilometer**: `8.50 min/km` means eight minutes thirty seconds per kilometer. The animated panel can display the same pace as `8:30`. High pace values during very slow movement are retained, not clipped to a convenient running range; they represent more minutes needed per kilometer. Split pace uses elapsed time, including intervening pauses, and normalizes a partial final split to one kilometer. The table reports the shorter split's actual distance and marks it `Partial`.
+Pace charts and the split table show **decimal minutes per kilometer**: `8.50 min/km` means eight minutes thirty seconds per kilometer. High pace values during very slow movement are retained, not clipped to a convenient running range; they represent more minutes needed per kilometer. Split pace uses elapsed time, including intervening pauses, and normalizes a partial final split to one kilometer. The table reports the shorter split's actual distance and marks it `Partial`.
 
 Heart-rate colors are decorative, without age-derived training zones or an inferred maximum HR. Overall climb remains the importer's unsmoothed GPS elevation gain, not a corrected barometric measurement. Native Stat panels retain both Watch distance and GPS distance so the difference stays visible.
 

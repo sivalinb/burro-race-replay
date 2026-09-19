@@ -1,12 +1,18 @@
 # Burro Race Replay · Siva & Miles
 
-A personal race journal inside **Grafana**: Siva and Miles move along a timestamped course while heart rate, pace, elevation and kilometer splits follow the same replay clock. The illustrated team is based on supplied race and portrait photos, with the face revised using the clearer reference portraits.
+A personal race journal inside **Grafana**: native panels at the top analyze distance, duration, heart rate, pace, elevation and kilometer splits. A simple animated course replay at the bottom follows Siva and Miles along the recorded timestamps. The illustrated team is based on supplied race and portrait photos, with the face revised using the clearer reference portraits.
 
 **Current status: the latest Running workout has been imported from the supplied Apple Health archive into local Grafana.** The local dashboard replays the recorded GPS course over OpenStreetMap and includes device provenance. Raw Health data and the exact recorded route remain local.
 
-The repository screenshot below uses the fictional preview for privacy. Its 10 km / 82-minute values and schematic course are demonstration data, not Siva's result; the current local dashboard has the real-map background.
+The screenshots below use an isolated fictional preview for privacy. Its 10 km / 82-minute values and schematic course are demonstration data, not Siva's result. The local dashboard uses the actual recorded course over a real map.
 
-![Grafana race replay preview](docs/images/grafana-preview.jpg)
+**Native analysis first:**
+
+![Native Grafana analysis with fictional measurements](docs/images/grafana-native.jpg)
+
+**Simple animated replay at the bottom:**
+
+![Compact Siva and Miles replay with a fictional course](docs/images/grafana-preview.jpg)
 
 [Open the local Grafana dashboard](http://127.0.0.1:3030/d/burro-race-replay/burro-race-c2b7-siva-and-miles?orgId=1&kiosk) · [Export instructions](docs/export-workout.md) · [Data contract](docs/data-contract.md) · [Grafana setup](docs/setup-grafana.md)
 
@@ -102,23 +108,23 @@ flowchart LR
     Source --> Frames[Four query result frames]
     Frames --> Panel[HTML Graphics panel]
     Source --> Native[Native Stat / Time series / Bar chart / Table / Geomap]
-    Panel --> Replay[Elapsed-time course replay + synchronized readings]
+    Panel --> Replay[Simple elapsed-time course replay at the bottom]
 ```
 
 - **Course replay:** GPS coordinates are projected into a north-up trace over an OpenStreetMap basemap. Only tiles for the visible map area are requested; the full track and heart-rate samples stay local. The Siva-and-Miles illustration follows the timestamps, with a subtle bobbing animation; this is a moving illustration, not skeletal animation or a video. See [map behavior, attribution, and privacy](docs/map.md).
-- **Playback:** play/pause, restart, scrub and 1×/10×/30×/60×/120× controls use a single elapsed-time clock. The highlighted trail and chart cursor follow it. OS reduced-motion preference starts playback paused and disables decorative motion. Background tabs suspend replay progress. Event listeners and animation frames are cleaned up when Grafana removes the panel.
+- **Playback:** play/pause, restart, scrub and 1×/10×/30×/60×/120× controls use a single elapsed-time clock. The illustrated marker and highlighted trail follow it. Native charts remain independent full-workout analysis panels. OS reduced-motion preference starts playback paused and disables decorative motion. Background tabs suspend replay progress. Event listeners and animation frames are cleaned up when Grafana removes the panel.
 - **Pauses and GPS gaps:** omitted connections remain separate segments. The marker holds at the last known position instead of inventing a straight-line trip. Explicit watch pauses are labeled while elapsed time continues.
-- **Your heart rate:** the latest real sample at or before the replay time is shown for at most 30 seconds; longer gaps show `—`. The pulse animation period is `60 / bpm` seconds. The companion's heart rate is not measured—these are the runner's readings.
-- **Pace and distance:** distance is calculated from eligible GPS edges; the watch-reported total is displayed separately. Overall and split pace include elapsed pauses. The momentary readout uses an approximately trailing 30-second GPS window, not an instantaneous sensor value.
-- **Elevation and effort:** altitude and heart rate share the elapsed-time axis with separately labeled vertical scales. Climbing is the unsmoothed sum of positive connected altitude differences and can be inflated by GPS noise.
+- **Your heart rate:** native Stat and Time series panels show the runner's recorded measurements. Miles's heart rate is not measured. The animated panel does not repeat these readings.
+- **Pace and distance:** native panels display GPS distance alongside the watch-reported total. Split pace includes elapsed pauses. The pace timeline uses an approximately trailing 30-second GPS window, not an instantaneous sensor value.
+- **Elevation and effort:** separate native Time series panels show altitude and heart rate at recorded timestamps. Split climbing in the native table is derived from positive connected altitude differences and can be inflated by GPS noise.
 - **Device details:** the user-provided label “Apple Watch Ultra 4” is separate from exported model, hardware identifier, software version and source. The importer excludes unique device identifiers and never infers the marketing model from a hardware code.
-- **Missing data:** SQL nulls display as `—`, with no fabricated HR, route, energy or active time. Summary-only workouts remain usable without GPS. Warnings are available in the footer tooltip and `race.warnings_json`.
+- **Missing data:** SQL nulls display as `—`, with no fabricated HR, route, energy or active time. Summary-only workouts remain usable without GPS. Warnings remain visible in the replay notice and are stored in `race.warnings_json`.
 
 This is a **historical workout replay**, not live Apple Watch telemetry. Querying Grafana does not fetch Health data. After importing another workout into the same database path, rerun the installer with the same `--url` and `--db` plus `--overwrite`, then refresh. This updates the historical time range and Geomap segment layers; the sample badge changes according to `race.synthetic`. If a cached SQLite connection retains the prior file after atomic replacement, reconnect the data source or restart the local Grafana process. Do not change real data to a synthetic flag or vice versa to alter the display.
 
 ## Native Grafana analysis panels
 
-The animated journal is followed by **10 built-in Grafana panels**, all querying the same local SQLite database:
+The dashboard starts with **10 built-in Grafana panels**, all querying the same local SQLite database. The compact animated course replay sits below them:
 
 | Native panel | What it shows |
 | --- | --- |
@@ -128,7 +134,7 @@ The animated journal is followed by **10 built-in Grafana panels**, all querying
 | Table | Detailed kilometer distance, elapsed time, pace, heart rate and climbing |
 | Geomap | The actual GPS course on the standard OpenStreetMap background, with native pan/zoom controls |
 
-These are Grafana's own panel types. Only the illustrated moving replay needs HTML Graphics. The installer sets the dashboard time range from the selected workout so historical time series appear correctly. Native Geomap uses a separate query/layer for each recorded GPS segment to avoid drawing across gaps. [Native panel design and queries](docs/native-panels.md).
+These are Grafana's own panel types. Only the illustrated moving replay needs HTML Graphics. Its duplicate totals, metric cards, custom charts, splits table and companion portrait have been removed; it keeps the moving route marker, playback controls and a compact watch-provenance line. The installer sets the dashboard time range from the selected workout so historical time series appear correctly. Native Geomap uses a separate query/layer for each recorded GPS segment to avoid drawing across gaps. [Native panel design and queries](docs/native-panels.md).
 
 ## 5. Verify and extend
 

@@ -2,7 +2,7 @@
   "id": null,
   "uid": "burro-race-replay",
   "title": "Burro Race \u00b7 Siva & Miles",
-  "description": "Replay a selected Apple Watch burro race from local SQLite. Synthetic preview until your workout is imported.",
+  "description": "Analyze one recorded Apple Watch workout with native Grafana panels, followed by a simple Siva-and-Miles course replay.",
   "tags": [
     "burro-race",
     "workout",
@@ -36,15 +36,15 @@
   "panels": [
     {
       "id": 1,
-      "title": "Siva & Miles \u00b7 Race journal",
+      "title": "Siva & Miles \u00b7 Course replay",
       "type": "gapit-htmlgraphics-panel",
       "pluginVersion": "2.2.3",
       "transparent": true,
       "gridPos": {
         "x": 0,
-        "y": 0,
+        "y": 40,
         "w": 24,
-        "h": 34
+        "h": 18
       },
       "datasource": {
         "type": "frser-sqlite-datasource",

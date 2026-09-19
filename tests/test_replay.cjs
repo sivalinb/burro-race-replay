@@ -9,6 +9,7 @@ const assert = require('node:assert/strict');
 
 const panelPath = path.join(__dirname, '..', 'panels', 'race', 'on-init.js');
 const panelCode = fs.readFileSync(panelPath, 'utf8');
+const panelHtml = fs.readFileSync(path.join(path.dirname(panelPath), 'panel.html'), 'utf8');
 
 class FakeNode {
   constructor(tag = 'div') {
@@ -19,7 +20,6 @@ class FakeNode {
     this.textContent = '';
     this.value = 0;
     this.listeners = new Map();
-    this.selected = new Map();
     this.style = {setProperty: (key, value) => { this.style[key] = value; }};
     const classes = new Set();
     this.classList = {
@@ -48,10 +48,40 @@ class FakeNode {
   appendChild(node) { this.children.push(node); return node; }
   replaceChildren(...nodes) { this.children = nodes; }
   querySelector(selector) {
-    if (!this.selected.has(selector)) this.selected.set(selector, new FakeNode(selector));
-    return this.selected.get(selector);
+    const matches = node => selector.startsWith('.') ? node.classList.contains(selector.slice(1)) : node.tag === selector;
+    for (const child of this.children) {
+      if (matches(child)) return child;
+      const found = child.querySelector(selector);
+      if (found) return found;
+    }
+    return null;
   }
   querySelectorAll(tag) { return this.children.filter(node => node.tag === tag); }
+}
+
+// Build the fixture from the real template: missing IDs must fail instead of being invented.
+function templateDom() {
+  const html = new FakeNode('document'), nodes = {}, stack = [html];
+  const voidTags = new Set(['input', 'img', 'br', 'hr', 'meta', 'link']);
+  for (const match of panelHtml.matchAll(/<(\/?)([a-zA-Z][\w-]*)([^>]*)>/g)) {
+    const [, closing, tag, attrs] = match;
+    if (closing) { assert.equal(stack.pop().tag, tag, `Mismatched template closing tag ${tag}`); continue; }
+    const node = new FakeNode(tag);
+    for (const attribute of attrs.matchAll(/([\w:-]+)="([^"]*)"/g)) {
+      node.setAttribute(attribute[1], attribute[2]);
+      if (attribute[1] === 'class') attribute[2].split(/\s+/).forEach(name => node.classList.add(name));
+      if (attribute[1] === 'value') node.value = attribute[2];
+    }
+    if (node.attributes.id) { assert(!nodes[node.attributes.id], 'Duplicate template ID'); nodes[node.attributes.id] = node; }
+    if (/\bhidden\b/.test(attrs)) node.hidden = true;
+    stack[stack.length - 1].appendChild(node);
+    if (!voidTags.has(tag) && !attrs.trimEnd().endsWith('/')) stack.push(node);
+  }
+  assert.equal(stack.length, 1, 'Template must have balanced elements');
+  html.getElementById = id => nodes[id] || null;
+  const root = html.querySelector('.br');
+  assert(root, 'Replay root must exist in the actual HTML template');
+  return {html, root, nodes};
 }
 
 function frames(tables, vector = false) {
@@ -69,11 +99,7 @@ function frames(tables, vector = false) {
 }
 
 function fixture({vector = false, synthetic = 1, reducedMotion = true, raceChanges = {}, points: customPoints} = {}) {
-  const nodes = {};
-  const root = new FakeNode();
-  const html = new FakeNode();
-  html.getElementById = id => nodes[id] || (nodes[id] = new FakeNode());
-  html.querySelector = () => root;
+  const {nodes, root, html} = templateDom();
   const race = {
     title: 'Fictional fixture', start_time: '2026-01-01T00:00:00Z', source: 'Fixture Watch',
     synthetic, point_count: 5, hr_count: 2, gps_distance_m: 1000, elapsed_s: 120,
@@ -164,35 +190,47 @@ function assertVisibleTiles(f) {
   }
 }
 
+test('Actual HTML contains only route replay, controls, data status, and compact device details', () => {
+  const {nodes, root} = templateDom();
+  for (const id of ['runner-marker', 'play', 'restart', 'seek', 'speed', 'device-details', 'data-badge']) assert(nodes[id]);
+  for (const id of ['total-distance', 'total-time', 'total-pace', 'total-hr', 'total-gain',
+    'current-distance', 'current-hr', 'current-pace', 'current-elevation', 'current-percent',
+    'profile', 'split-rows', 'device-energy']) assert.equal(nodes[id], undefined);
+  assert.equal(root.querySelector('aside'), null);
+  assert.equal(root.querySelector('table'), null);
+  assert.equal(root.querySelector('img'), null, 'The duplicate companion portrait was removed');
+  assert.equal(root.querySelector('image'), nodes['runner-marker'].querySelector('image'));
+});
+
 for (const vector of [false, true]) {
-  test(`${vector ? 'Vector' : 'Array'} frames preserve GPS bounds, pause holds, gaps, and HR expiry`, () => {
+  test(`${vector ? 'Vector' : 'Array'} frames preserve GPS bounds, pause holds, gaps, and elapsed playback`, () => {
     const f = fixture({vector}), n = f.nodes;
     f.seek(0);
-    assert.equal(n['current-distance'].textContent, 'No GPS');
-    assert.equal(n['current-pace'].textContent, '—');
-    assert.equal(n['current-elevation'].textContent, '—');
     assert.equal(n['runner-marker'].style.display, 'none');
     assert.equal(n['replay-label'].textContent, 'AWAITING GPS');
-    assert.equal(n['current-hr'].textContent, '—');
+    assert.equal(n['replay-clock'].textContent, '0:00');
     f.seek(40); const held = n['runner-marker'].attributes.transform;
     f.seek(55);
     assert.equal(n['runner-marker'].attributes.transform, held);
     assert.equal(n['replay-label'].textContent, 'WATCH PAUSED');
-    assert.equal(n['current-pace'].textContent, '—');
-    assert.equal(n['current-hr'].textContent, '—');
+    assert.equal(n['replay-clock'].textContent, '0:55');
     assert(f.root.classList.contains('gap'));
     f.seek(60); assert.equal(n['replay-label'].textContent, 'GPS GAP');
-    f.seek(100);
-    assert.equal(n['current-distance'].textContent, '1.00 km');
-    assert.equal(n['current-pace'].textContent, '10:00');
-    assert.equal(n['current-elevation'].textContent, '120');
-    assert.equal(n['current-hr'].textContent, '160');
+    f.seek(80);
+    assert.notEqual(n['runner-marker'].attributes.transform, held);
+    assert(!f.root.classList.contains('gap'));
+    assert.equal(n['seek'].attributes['aria-valuetext'], '1:20 of 2:00');
+    f.seek(100); const last = n['runner-marker'].attributes.transform;
     f.seek(110);
-    assert.equal(n['current-distance'].textContent, '1.00 km');
-    assert.equal(n['current-pace'].textContent, '—');
-    assert.equal(n['current-elevation'].textContent, '—');
+    assert.equal(n['runner-marker'].attributes.transform, last);
     assert.equal(n['replay-label'].textContent, 'GPS ENDED');
-    assert.equal(n['current-hr'].textContent, '—');
+    f.seek(120);
+    assert.equal(n['replay-label'].textContent, 'FINISHED');
+    assert.equal(n['replay-clock'].textContent, n['replay-end'].textContent);
+    assert.equal(n['seek'].value, 1000);
+    f.click('restart');
+    assert.equal(n['replay-clock'].textContent, '0:00');
+    assert.equal(n['runner-marker'].style.display, 'none');
     f.html.__burroCleanup();
   });
 }
@@ -244,14 +282,35 @@ test('User device label and different nested exported metadata retain separate p
     device_metadata_json: JSON.stringify({exported_device: exported, user_label: 'Fixture user-described device'}),
     energy_kcal: 123.4,
   }});
-  assert.equal(f.nodes['device-model'].textContent, 'Fixture user-described device');
-  assert.equal(f.nodes['device-exported'].textContent, exported.model);
-  assert.equal(f.nodes['device-hardware'].textContent, exported.hardware);
-  assert.equal(f.nodes['device-software'].textContent, exported.software);
-  assert.match(f.nodes['device-provenance'].textContent, /supplied by you.*separately/);
-  assert.equal(f.nodes['device-source'].textContent, 'Fixture Watch');
-  assert.equal(f.nodes['device-energy'].textContent, '123 kcal');
+  const line = f.nodes['device-details'].textContent;
+  assert.match(line, /Fixture user-described device \(user-provided model\)/);
+  assert(line.includes('Export: ' + exported.model));
+  assert(line.includes(exported.hardware));
+  assert(line.includes('software ' + exported.software));
+  assert.equal(f.nodes['device-details'].title, 'Recorded by Fixture Watch');
+  assert(!line.includes('123'), 'Calories belong in the native panel');
   assert.equal(JSON.parse(f.tables.A[0].device_metadata_json).exported_device.model, exported.model);
+  f.html.__burroCleanup();
+});
+
+test('Recorded notices stay compact while warnings, missing routes, and errors remain visible', () => {
+  const f = fixture({synthetic: 0});
+  assert.equal(f.nodes['data-notice'].hidden, true);
+  assert.equal(f.nodes['data-badge'].textContent, 'RECORDED · LOCAL');
+  f.update({A: [{...f.tables.A[0], warnings_json: '["Fictional GPS gap warning"]'}]});
+  assert.equal(f.nodes['data-notice'].hidden, false);
+  assert.equal(f.nodes['data-notice'].textContent, 'Fictional GPS gap warning');
+  f.update({B: []});
+  f.seek(80);
+  assert.equal(f.nodes['runner-marker'].style.display, 'none');
+  assert.equal(f.nodes['route-base'].attributes.d, '');
+  assert.equal(f.nodes['replay-label'].textContent, 'NO GPS ROUTE');
+  assert.equal(f.nodes['no-route'].textContent, 'No GPS route in this workout');
+  assert.equal(f.nodes['map-tiles'].children.length, 0);
+  assert.equal(f.nodes['map-attribution'].hidden, true);
+  f.html.__burroUpdate({state: 'Error', error: {message: 'Fixture'}});
+  assert.equal(f.nodes['data-notice'].hidden, false);
+  assert.match(f.nodes['data-notice'].textContent, /query failed/);
   f.html.__burroCleanup();
 });
 

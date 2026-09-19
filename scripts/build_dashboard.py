@@ -38,7 +38,7 @@ def native_panels():
          'Energy reported by the workout or its active-energy statistics. Missing calories remain unavailable; nothing is estimated.'),
     ]
     for i, (ref, title, sql, unit, decimals, color, description) in enumerate(stat_specs):
-        item = panel(ref, 'stat', title, sql, i*6, 34, 6, 5, unit, decimals, color, description)
+        item = panel(ref, 'stat', title, sql, i*6, 0, 6, 5, unit, decimals, color, description)
         item['options'] = {'reduceOptions': {'values': False, 'calcs': ['lastNotNull'], 'fields': ''},
                            'orientation': 'auto', 'textMode': 'value_and_name', 'colorMode': 'value',
                            'graphMode': 'none', 'justifyMode': 'auto', 'wideLayout': True}
@@ -65,7 +65,7 @@ ORDER BY time'''
         ('N6', 'Pace · rolling GPS', pace_sql, 'suffix:min/km', '#BFE1C1', 'Approximately trailing 30-second pace derived by the importer, shown in decimal minutes per kilometer. Segment starts and unavailable pace remain null.'),
         ('N7', 'Elevation · GPS profile', elevation_sql, 'suffix:m', '#FFC77C', 'Recorded GPS elevations. The trace breaks at route segment changes; altitude noise is not corrected.'),
     ]):
-        item = panel(ref, 'timeseries', title, sql, i*8, 39, 8, 9, unit, 1 if ref != 'N6' else 2, color, description, timeseries=True)
+        item = panel(ref, 'timeseries', title, sql, i*8, 5, 8, 9, unit, 1 if ref != 'N6' else 2, color, description, timeseries=True)
         item['fieldConfig']['defaults']['custom'] = {'drawStyle': 'line', 'lineInterpolation': 'linear', 'lineWidth': 2,
             'fillOpacity': 10, 'gradientMode': 'none', 'showPoints': 'never', 'pointSize': 3, 'spanNulls': False,
             'insertNulls': False, 'axisPlacement': 'auto', 'axisColorMode': 'text', 'axisBorderShow': False,
@@ -78,7 +78,7 @@ ORDER BY time'''
 
     split_sql = '''SELECT 'Km ' || km || CASE WHEN is_partial = 1 THEN ' *' ELSE '' END AS "Split",
 pace_s_km / 60.0 AS "Pace" FROM splits ORDER BY km'''
-    item = panel('N8', 'barchart', 'Kilometer split pace', split_sql, 0, 48, 12, 10, 'suffix:min/km', 2, '#BFE1C1',
+    item = panel('N8', 'barchart', 'Kilometer split pace', split_sql, 0, 14, 12, 10, 'suffix:min/km', 2, '#BFE1C1',
                  'Elapsed pace for each GPS-derived kilometer; lower is faster. * marks a partial final kilometer, normalized to min/km.')
     item['options'] = {'xField': 'Split', 'orientation': 'vertical', 'xTickLabelRotation': 0, 'xTickLabelSpacing': 0,
                        'showValue': 'auto', 'stacking': 'none', 'groupWidth': 0.7, 'barWidth': 0.85, 'barRadius': 0.1,
@@ -92,7 +92,7 @@ pace_s_km / 60.0 AS "Pace" FROM splits ORDER BY km'''
     table_sql = '''SELECT km AS "Km", CASE WHEN is_partial = 1 THEN 'Partial' ELSE 'Full km' END AS "Coverage",
 distance_m / 1000.0 AS "Distance", elapsed_s AS "Elapsed", pace_s_km / 60.0 AS "Pace",
 avg_hr_bpm AS "Mean HR", elevation_gain_m AS "Climb" FROM splits ORDER BY km'''
-    item = panel('N9', 'table', 'Kilometer splits · detail', table_sql, 12, 48, 12, 10, description='One row per split. Distance and partial status are explicit; missing HR or elevation is shown as —.')
+    item = panel('N9', 'table', 'Kilometer splits · detail', table_sql, 12, 14, 12, 10, description='One row per split. Distance and partial status are explicit; missing HR or elevation is shown as —.')
     item['fieldConfig']['defaults']['custom'] = {'align': 'auto', 'cellOptions': {'type': 'auto'}, 'inspect': False}
     item['fieldConfig']['overrides'] = [
         {'matcher': {'id': 'byName', 'options': name}, 'properties': [{'id': 'unit', 'value': unit}, {'id': 'decimals', 'value': decimals}]}
@@ -105,7 +105,7 @@ avg_hr_bpm AS "Mean HR", elevation_gain_m AS "Climb" FROM splits ORDER BY km'''
     map_sql = '''SELECT r.started_at_epoch_s + p.elapsed_s AS time, p.lat AS "Latitude", p.lon AS "Longitude",
 p.elevation_m AS "Elevation", p.distance_m / 1000.0 AS "Distance", p.segment AS "Segment"
 FROM route_points p CROSS JOIN race r ORDER BY p.seq'''
-    item = panel('N10', 'geomap', 'Recorded course · native Geomap', map_sql, 0, 58, 24, 16,
+    item = panel('N10', 'geomap', 'Recorded course · native Geomap', map_sql, 0, 24, 24, 16,
                  description='Recorded GPS coordinates over OpenStreetMap. The installer creates one route layer per connected segment so gaps are never bridged. A directly imported export safely shows point markers. Basemap tiles require internet access.')
     item['targets'][0]['timeColumns'] = ['time']
     # Grafana 12.1 defaults view.zoom to 1 and uses zoom as the fit cap; set it explicitly.
@@ -128,7 +128,7 @@ def build():
     options['css'] = (panel / 'panel.css').read_text()
     options['onInit'] = (panel / 'on-init.js').read_text()
     options['codeData'] = json.dumps({'tileUrl': 'https://tile.openstreetmap.org/{z}/{x}/{y}.png', 'sprite': 'data:image/png;base64,' + base64.b64encode((ROOT / 'assets/runner-and-miles.png').read_bytes()).decode()})
-    dashboard['panels'].extend(native_panels())
+    dashboard['panels'] = native_panels() + dashboard['panels']
     dashboard['graphTooltip'] = 1
     dashboard['timepicker']['hidden'] = False
     return json.dumps(dashboard, ensure_ascii=False, indent=2) + '\n'
